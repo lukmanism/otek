@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title></title>
+	<link type="text/css" rel="stylesheet" href="css/dc.css">
+	<link rel="stylesheet" href="css/bootstrap.css">
+	<link rel="stylesheet" href="css/bootstrap-responsive.css">
+	<link type="text/css" rel="stylesheet" href="colorbox/colorbox.css">
+	<link type="text/css" rel="stylesheet" href="css/slider.css">
+	<link href="css/jquery-ui-1.10.3.custom.min.css" type="text/css" rel="stylesheet">
+	<script src="js/modernizr.custom.59339.js"></script>
+</head>
+<body>
+	<header></header>
+
+
+
+
+
+<div class="container-fluid"> 
+            <div class="row-fluid"> 
+                <div class="span2">
+                    <div class="btn-toolbar">
+                        <div class="btn-group">
+                            <button class="btn btn-mini">Time Range - Presets</button>
+                            <button data-toggle="dropdown" class="btn btn-mini dropdown-toggle"><span class="caret"></span></button>
+                            <ul class="dropdown-menu">
+                                <li><a href="javascript:setTimeRange(new Date(&quot;March 1, 2011&quot;), new Date(&quot;February 15, 2014&quot;))">Previous 3 Years</a></li>
+                                <li><a href="javascript:setTimeRange(new Date(&quot;March 1, 2009&quot;), new Date(&quot;February 15, 2014&quot;))">Previous 5 Years</a></li>
+                                <li><a href="javascript:setTimeRange(new Date(&quot;March 1, 2004&quot;), new Date(&quot;February 15, 2014&quot;))">Previous 10 Years</a></li>
+                                <li class="divider"></li>
+                                <li><a href="javascript:setTimeRange(new Date(&quot;Mar 1, 2009&quot;), new Date(&quot;Feb 14, 2013&quot;))">Bull: March 1, 2009 - Feb 28, 2013</a></li>
+                                <li><a href="javascript:setTimeRange(new Date(&quot;Oct 1, 2002&quot;), new Date(&quot;Sept 15, 2007&quot;))">Bull: Oct 1, 2002 - Sept 30, 2007</a></li>
+                                <li class="divider"></li>
+                                <li><a href="javascript:setTimeRange(new Date(&quot;Apr 1, 2000&quot;), new Date(&quot;Sept 15, 2001&quot;))">Bear: Apr 1, 2000 - Sept 30, 2001</a></li>
+                                <li><a href="javascript:setTimeRange(new Date(&quot;Oct 1, 2007&quot;), new Date(&quot;Nov 15, 2008&quot;))">Bear: Oct 1, 2007 - Nov 30, 2008</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="span10">
+                    <div id="time-range-selector">
+                    </div><br><br>
+                </div>
+            </div>
+            <div class="row-fluid">
+                <div class="span12">
+                    <div class="chart dc-chart" id="returns-chart"></div>
+                    <div class="chart dc-chart" id="std-dev-chart"></div>
+                    <div class="chart dc-chart" id="risk-index-chart"></div>
+                    <div class="chart dc-chart" id="sharpe-ratio-chart"></div>
+                    <div class="chart dc-chart" id="turnover-chart"></div>
+                </div>     
+            </div>
+            <div class="row-fluid">
+                <div class="chart" id="categories-chart"></div>
+            </div>
+            <div class="row-fluid">
+                <div class="span12">
+                    <div class="dc-data-count dc-chart"></div>
+                </div>
+            </div>
+            <div class="row-fluid">
+                <div class="span12">
+                    <div id="stats-table"></div>
+                </div>
+            </div>
+        </div>
+
+<script src="js/jquery-1.9.1.min.js" type="text/javascript"></script>
+<script src="colorbox/jquery.colorbox-min.js" type="text/javascript"></script>
+<script src="js/d3.min.js" type="text/javascript"></script>
+<script src="js/dc.js" type="text/javascript"></script>
+<script src="js/crossfilter.min.js" type="text/javascript"></script>
+<script src="js/psMathStats.min.js" type="text/javascript"></script>
+<script src="js/jquery-ui-1.10.3.custom.min.js" type="text/javascript"></script>
+<script src="js/bootstrap.min.js" type="text/javascript"></script>
+<script src="js/app.min.js" type="text/javascript"></script>
+<script src="js/screenDetails.js" type="text/javascript"></script>
+<script src="js/jQDateRangeSlider-min.js" type="text/javascript"></script>
+
+
+<script>
+    var returnsChart = dc.barChart("#returns-chart");
+    var riskIdxChart = dc.barChart("#risk-index-chart");
+    var stdDevChart = dc.barChart("#std-dev-chart");
+    var sharpeRatioChart = dc.barChart("#sharpe-ratio-chart");
+    var turnoverChart = dc.barChart("#turnover-chart");
+
+    var categoryColor = { 
+        "Value" : "#8DD3C7", 
+        "Value With Price Momentum" : "#FFFFB3",  
+        "Growth" : "#BEBADA",
+        "Growth With Price Momentum" : "#FB8072", 
+        "Growth &amp; Value" : "#A6CEE3",
+        "Growth &amp; Value With Price Momentum" : "#FDB462", 
+        "Earnings Estimates" : "#B3DE69", 
+        "Indexes" : "#FCCDE5",
+        "T-Bills" : "#D9D9D9",
+        "Insider Net Purchases" : "#BC80BD" };
+
+    var chartDivWidth = window.innerWidth;
+    var initialized = false;
+    var colNames = [];
+    var aaiiData;
+    var sortBy = "Annualized Return";
+    var annualizedReturn, sharpeRatio, stdDev, riskIdx, turnover, screenCategory, selectedCategory;
+    var showingCummulative = false;
+
+    jQuery('a.forum').colorbox({ width:"700", height:"95%", scrolling:"true", iframe:"true" });
+    jQuery('a.overview').colorbox({ width:"95%", height:"95%", scrolling:"true", iframe:"true" });
+
+    // read data and init display
+    d3.csv("data/monthlyperformance-cleaned.csv", function (data) {
+        aaiiData = data;
+
+        var startTimeRange = new Date("January 1, 1998"), 
+            endTimeRange = new Date("February 28, 2014");    
+
+        var defaultTimeStart = new Date("March 1, 2009"),
+            defaultTimeStop = new Date("February 28, 2014");
+
+        setTimeRange(startTimeRange, endTimeRange, defaultTimeStart, defaultTimeStop);
+    });
+
+</script>
+
+
+
+
+
+
+
+	<footer></footer>
+</body>
+</html>
